@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Distributed Code Execution Platform</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.45.0/min/vs/loader.min.js"></script>
+</head>
+<body class="bg-gray-100 min-h-screen">
+    <div class="container mx-auto px-4 py-8">
+        <h1 class="text-3xl font-bold text-center mb-8">Distributed ML Code Execution Platform</h1>
+        
+        <div class="bg-white rounded-lg shadow-lg p-6">
+            <div class="mb-4">
+                <label class="block text-gray-700 text-sm font-bold mb-2">Select Template:</label>
+                <select id="templateSelect" class="w-full p-2 border rounded-lg">
+                    <option value="basic">Basic ML Pipeline</option>
+                    <option value="custom">Custom Code</option>
+                </select>
+            </div>
+            
+            <div id="editor" class="h-96 border border-gray-300 rounded-lg"></div>
+            
+            <div class="mt-4 flex justify-between items-center">
+                <button id="runButton" class="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded">
+                    Run Code
+                </button>
+                <div id="status" class="text-gray-600"></div>
+            </div>
+            
+            <div class="mt-4">
+                <h2 class="text-xl font-semibold mb-2">Output</h2>
+                <div id="output" class="bg-gray-800 text-green-400 p-4 rounded-lg font-mono h-48 overflow-y-auto"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        require.config({ paths: { 'vs': 'https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.45.0/min/vs' }});
+        require(['vs/editor/editor.main'], function() {
+            const editor = monaco.editor.create(document.getElementById('editor'), {
+                value: `# Basic ML Pipeline Template
+# 1. Data Fetching
+data = data_fetch('path/to/your/data.csv')
+
+# 2. Data Preprocessing
+X_train, X_test, y_train, y_test, scaler = data_preprocessing(
+    data=data,
+    target_column='target',
+    test_size=0.2
+)
+
+# 3. Model Training
+model = train(
+    X_train=X_train,
+    y_train=y_train,
+    model_type='linear'  # Options: 'linear', 'random_forest', 'neural_network'
+)
+
+# 4. Model Evaluation
+from sklearn.metrics import mean_squared_error
+y_pred = model.predict(X_test)
+mse = mean_squared_error(y_test, y_pred)
+print(f"Mean Squared Error: {mse}")`,
+                language: 'python',
+                theme: 'vs-dark',
+                automaticLayout: true
+            });
+
+            const ws = new WebSocket(`ws://${window.location.host}/ws`);
+            const outputDiv = document.getElementById('output');
+            const statusDiv = document.getElementById('status');
+            const runButton = document.getElementById('runButton');
+            const templateSelect = document.getElementById('templateSelect');
+
+            const templates = {
+                basic: `# Basic ML Pipeline Template
+# 1. Data Fetching
+data = data_fetch('path/to/your/data.csv')
+
+# 2. Data Preprocessing
+X_train, X_test, y_train, y_test, scaler = data_preprocessing(
+    data=data,
+    target_column='target',
+    test_size=0.2
+)
+
+# 3. Model Training
+model = train(
+    X_train=X_train,
+    y_train=y_train,
+    model_type='linear'  # Options: 'linear', 'random_forest', 'neural_network'
+)
+
+# 4. Model Evaluation
+from sklearn.metrics import mean_squared_error
+y_pred = model.predict(X_test)
+mse = mean_squared_error(y_test, y_pred)
+print(f"Mean Squared Error: {mse}")`,
+                custom: `# Enter your custom code here
+# Available functions:
+# - data_fetch(data_path)
+# - data_preprocessing(data, target_column=None, test_size=0.2)
+# - train(X_train, y_train, model_type='linear', **kwargs)
+
+print("Hello, World!")`
+            };
+
+            templateSelect.addEventListener('change', (e) => {
+                editor.setValue(templates[e.target.value]);
+            });
+
+            ws.onmessage = function(event) {
+                const data = JSON.parse(event.data);
+                statusDiv.textContent = data.message;
+                if (data.result) {
+                    outputDiv.textContent = data.result;
+                }
+            };
+
+            runButton.addEventListener('click', () => {
+                const code = editor.getValue();
+                ws.send(JSON.stringify({
+                    code: code,
+                    timestamp: new Date().toISOString()
+                }));
+                outputDiv.textContent = 'Executing code...';
+            });
+        });
+    </script>
+</body>
+</html> 

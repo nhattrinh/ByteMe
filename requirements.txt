@@ -1,0 +1,12 @@
+fastapi
+uvicorn
+pika
+python-dotenv
+pydantic
+websockets
+redis
+flake8
+numpy
+pandas
+scikit-learn
+disutils
