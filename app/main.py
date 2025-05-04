@@ -12,7 +12,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 
-app = FastAPI(title="Distributed ML Code Execution Platform")
+app = FastAPI(title="ByteMe")
 
 
 # Mount static files

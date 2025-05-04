@@ -3,35 +3,62 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Distributed Code Execution Platform</title>
+    <title>ByteMe</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.45.0/min/vs/loader.min.js"></script>
 </head>
 <body class="bg-gray-100 min-h-screen">
-    <div class="container mx-auto px-4 py-8">
-        <h1 class="text-3xl font-bold text-center mb-8">Distributed ML Code Execution Platform</h1>
-        
-        <div class="bg-white rounded-lg shadow-lg p-6">
-            <div class="mb-4">
-                <label class="block text-gray-700 text-sm font-bold mb-2">Select Template:</label>
-                <select id="templateSelect" class="w-full p-2 border rounded-lg">
-                    <option value="basic">Basic ML Pipeline</option>
-                    <option value="custom">Custom Code</option>
-                </select>
+    <!-- Navbar -->
+    <div class="bg-white shadow-md">
+        <div class="px-4 py-4 flex items-center">
+            <h1 class="text-3xl font-bold ml-[5px]">ByteMe</h1>
+        </div>
+    </div>
+
+    <div class="px-4 py-8">
+        <div class="flex gap-4">
+            <!-- Left Column (15% width) -->
+            <div class="w-1/6 bg-white rounded-lg shadow-lg p-4">
+                <div class="mb-4">
+                    <label class="block text-gray-700 text-sm font-bold mb-2">Select Template:</label>
+                    <select id="templateSelect" class="w-full p-2 border rounded-lg">
+                        <option value="basic">Basic ML Pipeline</option>
+                        <option value="custom">Custom Code</option>
+                    </select>
+                </div>
             </div>
-            
-            <div id="editor" class="h-96 border border-gray-300 rounded-lg"></div>
-            
-            <div class="mt-4 flex justify-between items-center">
-                <button id="runButton" class="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded">
-                    Run Code
-                </button>
-                <div id="status" class="text-gray-600"></div>
+
+            <!-- Right Column (flex-1) -->
+            <div class="flex-1 relative">
+                <div id="editor" class="h-[calc(100vh-12rem)] border border-gray-300 rounded-lg"></div>
             </div>
-            
-            <div class="mt-4">
-                <h2 class="text-xl font-semibold mb-2">Output</h2>
-                <div id="output" class="bg-gray-800 text-green-400 p-4 rounded-lg font-mono h-48 overflow-y-auto"></div>
+        </div>
+
+        <!-- Floating Buttons -->
+        <div class="fixed bottom-8 right-8 flex gap-4">
+            <button id="showOutputButton" class="bg-gray-500 hover:bg-gray-600 text-white font-bold py-3 px-6 rounded-full shadow-lg">
+                Show Output
+            </button>
+            <button id="runButton" class="bg-blue-500 hover:bg-blue-600 text-white font-bold py-3 px-6 rounded-full shadow-lg">
+                Run Code
+            </button>
+        </div>
+
+        <!-- Status Indicator -->
+        <div id="status" class="fixed bottom-8 left-1/2 transform -translate-x-1/2 text-gray-600 bg-white px-4 py-2 rounded-lg shadow"></div>
+
+        <!-- Output Modal -->
+        <div id="outputModal" class="fixed inset-0 bg-black bg-opacity-50 hidden">
+            <div class="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-3/4 h-3/4 bg-white rounded-lg p-6">
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="text-xl font-semibold">Output</h2>
+                    <button id="closeModal" class="text-gray-500 hover:text-gray-700">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                        </svg>
+                    </button>
+                </div>
+                <div id="output" class="bg-gray-800 text-green-400 p-4 rounded-lg font-mono h-[calc(100%-4rem)] overflow-y-auto"></div>
             </div>
         </div>
     </div>
@@ -72,6 +99,9 @@ print(f"Mean Squared Error: {mse}")`,
             const outputDiv = document.getElementById('output');
             const statusDiv = document.getElementById('status');
             const runButton = document.getElementById('runButton');
+            const showOutputButton = document.getElementById('showOutputButton');
+            const outputModal = document.getElementById('outputModal');
+            const closeModal = document.getElementById('closeModal');
             const templateSelect = document.getElementById('templateSelect');
 
             const templates = {
@@ -126,6 +156,21 @@ print("Hello, World!")`
                     timestamp: new Date().toISOString()
                 }));
                 outputDiv.textContent = 'Executing code...';
+            });
+
+            showOutputButton.addEventListener('click', () => {
+                outputModal.classList.remove('hidden');
+            });
+
+            closeModal.addEventListener('click', () => {
+                outputModal.classList.add('hidden');
+            });
+
+            // Close modal when clicking outside
+            outputModal.addEventListener('click', (e) => {
+                if (e.target === outputModal) {
+                    outputModal.classList.add('hidden');
+                }
             });
         });
     </script>
