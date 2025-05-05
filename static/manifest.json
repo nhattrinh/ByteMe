@@ -1,0 +1,30 @@
+{
+    "name": "ByteMe",
+    "short_name": "ByteMe",
+    "description": "ML Pipeline Development Platform",
+    "start_url": "/",
+    "display": "standalone",
+    "background_color": "#ffffff",
+    "theme_color": "#ffffff",
+    "icons": [
+        {
+            "src": "/static/favicon.png",
+            "sizes": "192x192",
+            "type": "image/png"
+        },
+        {
+            "src": "/favicon.png",
+            "sizes": "512x512",
+            "type": "image/png"
+        }
+    ],
+    "shortcuts": [
+        {
+            "name": "New ML Pipeline",
+            "short_name": "New Pipeline",
+            "description": "Create a new ML pipeline",
+            "url": "/?template=basic",
+            "icons": [{ "src": "/favicon.png", "sizes": "192x192" }]
+        }
+    ]
+} 

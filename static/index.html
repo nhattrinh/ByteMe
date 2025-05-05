@@ -3,86 +3,120 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="ByteMe - ML Pipeline Development Platform">
+    <meta name="theme-color" content="#ffffff">
     <title>ByteMe</title>
+    <!-- Preload critical resources -->
+    <link rel="preload" href="https://cdn.tailwindcss.com" as="script">
+    <link rel="preload" href="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.45.0/min/vs/loader.min.js" as="script">
+    <!-- Add manifest for PWA -->
+    <link rel="manifest" href="/manifest.json">
+    <!-- Add favicon -->
+    <link rel="icon" type="image/png" href="/favicon.png">
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.45.0/min/vs/loader.min.js"></script>
 </head>
 <body class="bg-gray-100 min-h-screen">
+    <!-- Skip to main content link for screen readers -->
+    <a href="#main-content" class="sr-only focus:not-sr-only">Skip to main content</a>
+
     <!-- Navbar -->
-    <div class="bg-white shadow-md pb-6">
+    <nav class="bg-white shadow-md pb-6" role="navigation" aria-label="Main navigation">
         <div class="px-4 py-4 flex items-center">
             <h1 class="text-3xl font-bold ml-[5px]">ByteMe</h1>
         </div>
-    </div>
+    </nav>
 
-    <div>
+    <main id="main-content">
         <div class="flex max-w-[100vw]">
             <!-- Left Column (15% width) -->
-            <div class="w-1/5 rounded-md bg-white p-4">
+            <aside class="w-1/5 rounded-md bg-white p-4" role="complementary" aria-label="Controls">
                 <div class="mb-4">
-                    <label class="block text-gray-700 text-sm font-bold mb-2">Select Template:</label>
-                    <select id="templateSelect" class="w-full p-2 border rounded-lg">
+                    <label for="templateSelect" class="block text-gray-700 text-sm font-bold mb-2">Select Template:</label>
+                    <select id="templateSelect" class="w-full p-2 border rounded-lg" aria-label="Select template type">
                         <option value="basic">Basic ML Pipeline</option>
                         <option value="custom">Custom Code</option>
                     </select>
                 </div>
 
                 <div class="mb-4 rounded-md">
-                    <label class="block text-gray-700 text-sm font-bold mb-2">Upload CSV:</label>
+                    <label for="csvUpload" class="block text-gray-700 text-sm font-bold mb-2">Upload CSV:</label>
                     <div class="relative">
-                        <input type="file" id="csvUpload" accept=".csv" class="hidden">
+                        <input type="file" id="csvUpload" accept=".csv" class="hidden" aria-label="Upload CSV file">
                         <label for="csvUpload" class="w-full p-2 border rounded-lg cursor-pointer bg-gray-50 hover:bg-gray-100 text-center block">
                             Choose File
                         </label>
-                        <div id="fileName" class="text-sm text-gray-500 mt-1 truncate"></div>
+                        <div id="fileName" class="text-sm text-gray-500 mt-1 truncate" aria-live="polite"></div>
                     </div>
                 </div>
-            </div>
+            </aside>
 
             <!-- Right Column (flex-1) -->
             <div class="flex-1 relative">
-                <div id="editor" class="h-[calc(100vh-12rem)] border border-gray-300 rounded-lg"></div>
+                <div id="editor" class="h-[calc(100vh-12rem)] border border-gray-300 rounded-lg" role="textbox" aria-label="Code editor"></div>
             </div>
         </div>
 
         <!-- Floating Buttons -->
         <div class="fixed bottom-8 right-8 flex gap-4">
-            <button id="showOutputButton" class="bg-gray-500 hover:bg-gray-600 text-white font-bold py-3 px-6 rounded-full shadow-lg">
+            <button id="showOutputButton" class="bg-gray-500 hover:bg-gray-600 text-white font-bold py-3 px-6 rounded-full shadow-lg" aria-label="Show output">
                 Show Output
             </button>
-            <button id="runButton" class="bg-blue-500 hover:bg-blue-600 text-white font-bold py-3 px-6 rounded-full shadow-lg">
+            <button id="runButton" class="bg-blue-500 hover:bg-blue-600 text-white font-bold py-3 px-6 rounded-full shadow-lg" aria-label="Run code">
                 Run Code
             </button>
         </div>
 
         <!-- Status Indicator -->
-        <div id="status" class="fixed bottom-8 left-1/2 transform -translate-x-1/2 text-gray-600 bg-white px-4 py-2 rounded-lg shadow flex items-center gap-2">
-            <div id="spinner" class="hidden">
-                <svg class="animate-spin h-5 w-5 text-blue-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                </svg>
-            </div>
+        <div id="status" class="fixed bottom-8 left-1/2 transform -translate-x-1/2 text-gray-600 bg-white px-4 py-2 rounded-lg shadow flex items-center gap-2" role="status" aria-live="polite">
             <span id="statusText"></span>
             <span id="timer" class="text-sm text-gray-500"></span>
         </div>
 
         <!-- Output Modal -->
-        <div id="outputModal" class="fixed inset-0 bg-black bg-opacity-50 hidden">
+        <div id="outputModal" class="fixed inset-0 bg-black bg-opacity-50 hidden" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
             <div class="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-3/4 h-3/4 bg-gray-900 rounded-lg p-6">
                 <div class="flex justify-between items-center mb-4">
-                    <h2 class="text-xl font-semibold text-gray-200">Output Terminal</h2>
-                    <button id="closeModal" class="text-gray-400 hover:text-gray-200">
+                    <h2 id="modalTitle" class="text-xl font-semibold text-gray-200">Output Terminal</h2>
+                    <button id="closeModal" class="text-gray-400 hover:text-gray-200" aria-label="Close modal">
                         <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
                         </svg>
                     </button>
                 </div>
-                <div id="output" class="bg-gray-800 text-green-400 p-4 rounded-lg font-mono h-[calc(100%-4rem)] overflow-y-auto whitespace-pre-wrap"></div>
+                <div id="output" class="bg-gray-800 text-green-400 p-4 rounded-lg font-mono h-[calc(100%-4rem)] overflow-y-auto whitespace-pre-wrap" role="log" aria-live="polite">
+                    <div id="outputContent"></div>
+                </div>
             </div>
         </div>
-    </div>
+    </main>
 
+    <!-- Service Worker Registration -->
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('/sw.js')
+                    .then(registration => {
+                        console.log('ServiceWorker registration successful');
+                    })
+                    .catch(err => {
+                        console.log('ServiceWorker registration failed: ', err);
+                    });
+            });
+        }
+    </script>
+
+    <!-- Performance Monitoring -->
+    <script>
+        // Performance monitoring
+        window.addEventListener('load', () => {
+            const perfData = window.performance.timing;
+            const pageLoadTime = perfData.loadEventEnd - perfData.navigationStart;
+            console.log(`Page load time: ${pageLoadTime}ms`);
+        });
+    </script>
+
+    <!-- Existing Monaco Editor and Application Code -->
     <script>
         require.config({ paths: { 'vs': 'https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.45.0/min/vs' }});
         require(['vs/editor/editor.main'], function() {
@@ -187,6 +221,7 @@
             });
 
             const outputDiv = document.getElementById('output');
+            const outputContent = document.getElementById('outputContent');
             const statusDiv = document.getElementById('status');
             const runButton = document.getElementById('runButton');
             const showOutputButton = document.getElementById('showOutputButton');
@@ -199,8 +234,7 @@
             const templates = {
                 basic: `# Basic ML Pipeline Template
 # 1. Data Fetching
-data = data_fetch('path/to/your/data.csv')
-print("✓ Data loaded successfully")
+data = data_fetch('path/to/your/data.csv'); print("Data loaded successfully")
 print("Data shape:", data.shape)
 print("Columns:", ", ".join(data.columns))
 
@@ -209,7 +243,7 @@ print("Columns:", ", ".join(data.columns))
 # If your data uses a different column name, replace 'target' with your column name
 
 # Select only numeric columns (excluding datetime)
-print("\nPreprocessing data...")
+print("Preprocessing data...")
 numeric_cols = data.select_dtypes(include=['float64', 'int64']).columns
 if 'target' not in numeric_cols:
     numeric_cols = numeric_cols.append(pd.Index(['target']))
@@ -221,19 +255,19 @@ X_train, X_test, y_train, y_test, scaler = data_preprocessing(
     target_column='target',  # Change this to your target column name if different
     test_size=0.2
 )
-print("✓ Data preprocessing completed")
+print("Data preprocessing completed")
 print("Training set shape:", X_train.shape)
 print("Testing set shape:", X_test.shape)
 
 # 3. Model Training
-print("\nTraining model...")
+print("Training model...")
 model_type = 'linear'  # Options: 'linear', 'random_forest', 'neural_network'
 model = train(
     X_train=X_train,
     y_train=y_train,
     model_type=model_type  # Options: 'linear', 'random_forest', 'neural_network'
 )
-print("✓ Model training completed")
+print("Model training completed")
 
 # 4. Model Evaluation
 from sklearn.metrics import mean_squared_error, r2_score
@@ -243,7 +277,7 @@ import base64
 import torch
 
 # Make predictions
-print("\nEvaluating model...")
+print("Evaluating model...")
 if model_type == 'neural_network':
     model.eval()
     with torch.no_grad():
@@ -261,12 +295,12 @@ print("Mean Squared Error:", f"{mse:.4f}")
 print("R-squared Score:", f"{r2:.4f}")
 
 # Save model to bytes
-print("\nSaving model...")
+print("Saving model...")
 model_buffer = BytesIO()
 joblib.dump(model, model_buffer)
 model_buffer.seek(0)
 model_base64 = base64.b64encode(model_buffer.getvalue()).decode('utf-8')
-print("✓ Model saved successfully")
+print("Model saved successfully")
 print("MODEL_DATA:" + model_base64)`,
                 custom: `# Enter your custom code here
 # Available functions:
@@ -354,9 +388,8 @@ print("Hello, World!")`
                 document.getElementById('timer').textContent = '';
             }
 
-            function updateStatus(message, showSpinner = false) {
+            function updateStatus(message) {
                 document.getElementById('statusText').textContent = message;
-                document.getElementById('spinner').classList.toggle('hidden', !showSpinner);
             }
 
             function connectWebSocket() {
@@ -401,7 +434,7 @@ print("Hello, World!")`
                     
                     if (data.type === 'status') {
                         if (data.status === 'running') {
-                            updateStatus(data.message, true);
+                            updateStatus(data.message);
                         } else if (data.status === 'error') {
                             updateStatus(data.message);
                             stopTimer();
@@ -409,7 +442,7 @@ print("Hello, World!")`
                             updateStatus(data.message);
                         }
                         if (data.status === 'running' || data.status === 'error') {
-                            outputDiv.textContent += '\n' + data.message;
+                            outputContent.textContent = data.message.replace(/^\n+/, '');
                         }
                     } else if (data.type === 'output') {
                         // Check for model data marker
@@ -425,7 +458,9 @@ print("Hello, World!")`
                             // Remove the base64 data from the output
                             data.result = data.result.replace(/MODEL_DATA:.*\n/, '');
                         }
-                        outputDiv.textContent += '\n' + data.result;
+                        // Remove any leading newlines and ensure the first line starts immediately
+                        const cleanedOutput = data.result.replace(/^\n+/, '');
+                        outputContent.textContent = cleanedOutput;
                         outputModal.classList.remove('hidden');
                         stopTimer();
                     }
@@ -460,7 +495,7 @@ print("Hello, World!")`
 
             function sendCode(code) {
                 // Clear previous output
-                outputDiv.textContent = '';
+                outputContent.textContent = '';
                 // Show output modal
                 outputModal.classList.remove('hidden');
                 
@@ -468,7 +503,7 @@ print("Hello, World!")`
                     code: code,
                     timestamp: new Date().toISOString()
                 }));
-                updateStatus('Executing code...', true);
+                updateStatus('Executing code...');
                 startTimer();
             }
 

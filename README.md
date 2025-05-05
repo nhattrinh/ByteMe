@@ -2,12 +2,31 @@
 
 ByteMe is a web-based platform that allows users to develop and test machine learning pipelines in a streamlined environment. It provides a code editor with ML templates, real-time execution, and model deployment capabilities.
 
+## Features
+
+- Web-based code editor with Monaco (VS Code's editor)
+- Predefined ML functions for common tasks:
+  - `data_fetch`: Load data from CSV or NPY files
+  - `data_preprocessing`: Handle data preprocessing with scaling and train-test split
+  - `train`: Train ML models (Linear Regression, Random Forest, Neural Network)
+- Real-time code execution status updates
+- Distributed execution using Kubernetes
+- Task queue management with RabbitMQ
+- Result storage with Redis
+
+## Prerequisites
+
+- Python 3.9-3.12 (PyTorch compatibility)
+- Docker
+- Kubernetes cluster
+- RabbitMQ
+- Redis
+
 ## Architecture and Data Flow
 
 ### High-Level Architecture
 
 ![High Level Architecture](docs/high_level_arch.png)
-
 
 This architecture represents the core components of the ByteMe platform:
 
@@ -82,124 +101,102 @@ This architecture represents the production deployment of ByteMe on AWS:
    - Collects logs and performance data
    - Triggers alerts based on defined thresholds
 
-## AWS Deployment Guide
+## Installation and Setup
 
-### Prerequisites
-- AWS Account
-- AWS CLI installed and configured
-- Python 3.9+
-- Docker installed locally
+### Local Development Setup
 
-### 1. Set Up AWS Resources
-
-#### Create an EC2 Instance
+1. Clone the repository:
 ```bash
-# Create a security group
-aws ec2 create-security-group --group-name ByteMe-SG --description "Security group for ByteMe"
-aws ec2 authorize-security-group-ingress --group-name ByteMe-SG --protocol tcp --port 22 --cidr 0.0.0.0/0
-aws ec2 authorize-security-group-ingress --group-name ByteMe-SG --protocol tcp --port 80 --cidr 0.0.0.0/0
-aws ec2 authorize-security-group-ingress --group-name ByteMe-SG --protocol tcp --port 443 --cidr 0.0.0.0/0
-
-# Launch EC2 instance
-aws ec2 run-instances \
-    --image-id ami-0c55b159cbfafe1f0 \
-    --count 1 \
-    --instance-type t2.micro \
-    --key-name YourKeyPair \
-    --security-groups ByteMe-SG
+git clone <repository-url>
+cd <repository-name>
 ```
 
-### 2. Prepare the Application
-
-#### Create Dockerfile
-```dockerfile
-FROM python:3.9-slim
-
-WORKDIR /app
-
-COPY requirements.txt .
-RUN pip install -r requirements.txt
-
-COPY . .
-
-EXPOSE 8000
-
-CMD ["python", "app.py"]
-```
-
-#### Create requirements.txt
-```
-flask==2.0.1
-flask-socketio==5.1.1
-pandas==1.3.3
-scikit-learn==0.24.2
-torch==1.9.0
-numpy==1.21.2
-```
-
-### 3. Deploy to AWS
-
-#### Build and Push Docker Image
+2. Install Python dependencies:
 ```bash
-# Build the Docker image
-docker build -t byteme-app .
-
-# Tag the image
-docker tag byteme-app:latest your-aws-account-id.dkr.ecr.your-region.amazonaws.com/byteme-app:latest
-
-# Push to ECR
-aws ecr create-repository --repository-name byteme-app
-docker push your-aws-account-id.dkr.ecr.your-region.amazonaws.com/byteme-app:latest
+pip install -r requirements.txt
 ```
 
-#### Deploy to EC2
+3. Build Docker images:
 ```bash
-# SSH into your EC2 instance
-ssh -i your-key.pem ec2-user@your-ec2-ip
-
-# Install Docker
-sudo yum update -y
-sudo amazon-linux-extras install docker
-sudo service docker start
-sudo usermod -a -G docker ec2-user
-
-# Pull and run the Docker container
-docker pull your-aws-account-id.dkr.ecr.your-region.amazonaws.com/byteme-app:latest
-docker run -d -p 80:8000 your-aws-account-id.dkr.ecr.your-region.amazonaws.com/byteme-app:latest
+docker build -t code-execution-platform:latest .
+docker build -t code-execution-worker:latest -f Dockerfile.worker .
 ```
 
-### 4. Set Up Domain and SSL (Optional)
-
-#### Using Route 53 and ACM
+4. Deploy to Kubernetes:
 ```bash
-# Create a hosted zone in Route 53
-aws route53 create-hosted-zone --name yourdomain.com --caller-reference $(date +%s)
-
-# Request an SSL certificate
-aws acm request-certificate --domain-name yourdomain.com --validation-method DNS
-
-# Create an Application Load Balancer
-aws elbv2 create-load-balancer --name byteme-alb --subnets subnet-12345678 subnet-87654321 --security-groups sg-12345678
+kubectl apply -f k8s/deployment.yaml
 ```
 
-### 5. Monitoring and Maintenance
+### Configuration
 
-#### Set Up CloudWatch
+Create a `.env` file in the root directory with the following variables:
+```env
+RABBITMQ_HOST=localhost
+REDIS_HOST=localhost
+REDIS_PORT=6379
+```
+
+## Usage
+
+1. Start the FastAPI server:
 ```bash
-# Create a CloudWatch log group
-aws logs create-log-group --log-group-name /byteme/app
+uvicorn app.main:app --host 0.0.0.0 --port 8000
+```
 
-# Create a CloudWatch alarm
-aws cloudwatch put-metric-alarm \
-    --alarm-name ByteMe-CPU-Utilization \
-    --metric-name CPUUtilization \
-    --namespace AWS/EC2 \
-    --statistic Average \
-    --period 300 \
-    --threshold 80 \
-    --comparison-operator GreaterThanThreshold \
-    --evaluation-periods 2 \
-    --alarm-actions arn:aws:sns:region:account-id:your-topic
+2. In a separate terminal, start the worker process:
+```bash
+python app/worker.py
+```
+
+3. Open your browser and navigate to `http://localhost:8000`
+
+4. Select a template or write custom code:
+   - Basic ML Pipeline: Predefined template for common ML tasks
+   - Custom Code: Write your own code using the available ML functions
+
+5. Click "Run Code" to execute your code
+
+Note: Both the FastAPI server and worker process must be running simultaneously for the code execution to work properly. The worker process is responsible for executing the code and storing results in Redis, while the FastAPI server handles the web interface and WebSocket communication.
+
+## Available ML Functions
+
+### data_fetch
+```python
+data = data_fetch('path/to/your/data.csv')
+```
+Loads data from CSV or NPY files.
+
+### data_preprocessing
+```python
+X_train, X_test, y_train, y_test, scaler = data_preprocessing(
+    data=data,
+    target_column='target',
+    test_size=0.2
+)
+```
+Preprocesses data with scaling and train-test split.
+
+### train
+```python
+model = train(
+    X_train=X_train,
+    y_train=y_train,
+    model_type='linear'  # Options: 'linear', 'random_forest', 'neural_network'
+)
+```
+Trains ML models with different algorithms.
+
+## Data Requirements
+
+Your CSV file must contain a column named 'target' that will be used as the target variable for prediction. If your data uses a different column name, you'll need to modify the code template to use your column name.
+
+To check the available columns in your CSV:
+1. Upload your CSV file
+2. Use the custom template
+3. Run this code:
+```python
+data = data_fetch('your_file.csv')
+print("Available columns:", data.columns.tolist())
 ```
 
 ## Security Considerations
@@ -241,4 +238,12 @@ aws cloudwatch put-metric-alarm \
 
 ## License
 
-This project is licensed under the MIT License - see the LICENSE file for details. 
+This project is licensed under the MIT License - see the LICENSE file for details.
+
+## Acknowledgments
+
+- Monaco Editor for the code editor
+- FastAPI for the web framework
+- RabbitMQ for message queuing
+- Redis for result storage
+- Kubernetes for container orchestration
