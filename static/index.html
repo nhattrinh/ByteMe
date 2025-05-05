@@ -18,13 +18,24 @@
     <div class="px-4 py-8">
         <div class="flex gap-4">
             <!-- Left Column (15% width) -->
-            <div class="w-1/6 bg-white rounded-lg shadow-lg p-4">
+            <div class="w-1/6 bg-white p-4">
                 <div class="mb-4">
                     <label class="block text-gray-700 text-sm font-bold mb-2">Select Template:</label>
                     <select id="templateSelect" class="w-full p-2 border rounded-lg">
                         <option value="basic">Basic ML Pipeline</option>
                         <option value="custom">Custom Code</option>
                     </select>
+                </div>
+
+                <div class="mb-4">
+                    <label class="block text-gray-700 text-sm font-bold mb-2">Upload CSV:</label>
+                    <div class="relative">
+                        <input type="file" id="csvUpload" accept=".csv" class="hidden">
+                        <label for="csvUpload" class="w-full p-2 border rounded-lg cursor-pointer bg-gray-50 hover:bg-gray-100 text-center block">
+                            Choose File
+                        </label>
+                        <div id="fileName" class="text-sm text-gray-500 mt-1 truncate"></div>
+                    </div>
                 </div>
             </div>
 
@@ -45,7 +56,16 @@
         </div>
 
         <!-- Status Indicator -->
-        <div id="status" class="fixed bottom-8 left-1/2 transform -translate-x-1/2 text-gray-600 bg-white px-4 py-2 rounded-lg shadow"></div>
+        <div id="status" class="fixed bottom-8 left-1/2 transform -translate-x-1/2 text-gray-600 bg-white px-4 py-2 rounded-lg shadow flex items-center gap-2">
+            <div id="spinner" class="hidden">
+                <svg class="animate-spin h-5 w-5 text-blue-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+            </div>
+            <span id="statusText"></span>
+            <span id="timer" class="text-sm text-gray-500"></span>
+        </div>
 
         <!-- Output Modal -->
         <div id="outputModal" class="fixed inset-0 bg-black bg-opacity-50 hidden">
@@ -95,7 +115,6 @@ print(f"Mean Squared Error: {mse}")`,
                 automaticLayout: true
             });
 
-            const ws = new WebSocket(`ws://${window.location.host}/ws`);
             const outputDiv = document.getElementById('output');
             const statusDiv = document.getElementById('status');
             const runButton = document.getElementById('runButton');
@@ -103,6 +122,8 @@ print(f"Mean Squared Error: {mse}")`,
             const outputModal = document.getElementById('outputModal');
             const closeModal = document.getElementById('closeModal');
             const templateSelect = document.getElementById('templateSelect');
+            const csvUpload = document.getElementById('csvUpload');
+            const fileName = document.getElementById('fileName');
 
             const templates = {
                 basic: `# Basic ML Pipeline Template
@@ -141,22 +162,176 @@ print("Hello, World!")`
                 editor.setValue(templates[e.target.value]);
             });
 
-            ws.onmessage = function(event) {
-                const data = JSON.parse(event.data);
-                statusDiv.textContent = data.message;
-                if (data.result) {
-                    outputDiv.textContent = data.result;
+            async function handleFileUpload(event) {
+                const file = event.target.files[0];
+                if (!file) return;
+
+                const formData = new FormData();
+                formData.append('file', file);
+
+                try {
+                    const response = await fetch('/upload', {
+                        method: 'POST',
+                        body: formData
+                    });
+
+                    if (!response.ok) {
+                        throw new Error('Upload failed');
+                    }
+
+                    const result = await response.json();
+                    if (result.status === 'success') {
+                        // Update the code to use the uploaded file
+                        const code = editor.getValue();
+                        const updatedCode = code.replace(
+                            /data_fetch\(.*\)/,
+                            `data_fetch('${result.filename}')`
+                        );
+                        editor.setValue(updatedCode);
+                    } else {
+                        throw new Error(result.error || 'Upload failed');
+                    }
+                } catch (error) {
+                    console.error('Upload error:', error);
+                    alert('Failed to upload file: ' + error.message);
                 }
-            };
+            }
+
+            csvUpload.addEventListener('change', handleFileUpload);
+
+            let ws = null;
+            let reconnectAttempts = 0;
+            const maxReconnectAttempts = 5;
+            const reconnectDelay = 2000; // 2 seconds
+            let executionStartTime = null;
+            let timerInterval = null;
+
+            function updateTimer() {
+                if (executionStartTime) {
+                    const elapsed = Math.floor((Date.now() - executionStartTime) / 1000);
+                    document.getElementById('timer').textContent = `(${elapsed}s)`;
+                }
+            }
+
+            function startTimer() {
+                executionStartTime = Date.now();
+                document.getElementById('timer').textContent = '(0s)';
+                timerInterval = setInterval(updateTimer, 1000);
+            }
+
+            function stopTimer() {
+                if (timerInterval) {
+                    clearInterval(timerInterval);
+                    timerInterval = null;
+                }
+                executionStartTime = null;
+                document.getElementById('timer').textContent = '';
+            }
+
+            function updateStatus(message, showSpinner = false) {
+                document.getElementById('statusText').textContent = message;
+                document.getElementById('spinner').classList.toggle('hidden', !showSpinner);
+            }
+
+            function connectWebSocket() {
+                if (ws) {
+                    try {
+                        ws.close();
+                    } catch (e) {
+                        console.error('Error closing existing connection:', e);
+                    }
+                }
+
+                ws = new WebSocket(`ws://${window.location.host}/ws`);
+                
+                ws.onopen = function() {
+                    console.log('WebSocket connection established');
+                    updateStatus('Connected to server');
+                    reconnectAttempts = 0;
+                };
+
+                ws.onclose = function() {
+                    console.log('WebSocket connection closed');
+                    updateStatus('Disconnected from server');
+                    stopTimer();
+                    
+                    // Attempt to reconnect
+                    if (reconnectAttempts < maxReconnectAttempts) {
+                        reconnectAttempts++;
+                        updateStatus(`Attempting to reconnect (${reconnectAttempts}/${maxReconnectAttempts})...`);
+                        setTimeout(connectWebSocket, reconnectDelay);
+                    } else {
+                        updateStatus('Failed to connect to server. Please refresh the page.');
+                    }
+                };
+
+                ws.onerror = function(error) {
+                    console.error('WebSocket error:', error);
+                    updateStatus('Connection error');
+                };
+
+                ws.onmessage = function(event) {
+                    const data = JSON.parse(event.data);
+                    
+                    if (data.type === 'status') {
+                        if (data.status === 'running') {
+                            updateStatus(data.message, true);
+                        } else if (data.status === 'error') {
+                            updateStatus(data.message);
+                            stopTimer();
+                        } else {
+                            updateStatus(data.message);
+                        }
+                        if (data.status === 'running' || data.status === 'error') {
+                            outputDiv.textContent += '\n' + data.message;
+                        }
+                    } else if (data.type === 'output') {
+                        outputDiv.textContent += '\n' + data.result;
+                        outputModal.classList.remove('hidden');
+                        stopTimer();
+                    }
+                    
+                    // Scroll to bottom of output
+                    outputDiv.scrollTop = outputDiv.scrollHeight;
+                };
+            }
+
+            // Initial connection when the page loads
+            document.addEventListener('DOMContentLoaded', function() {
+                connectWebSocket();
+            });
 
             runButton.addEventListener('click', () => {
                 const code = editor.getValue();
+                if (!ws || ws.readyState !== WebSocket.OPEN) {
+                    statusDiv.textContent = 'Not connected to server. Attempting to reconnect...';
+                    connectWebSocket();
+                    // Wait a bit for the connection to establish
+                    setTimeout(() => {
+                        if (ws && ws.readyState === WebSocket.OPEN) {
+                            sendCode(code);
+                        } else {
+                            statusDiv.textContent = 'Failed to connect to server. Please refresh the page.';
+                        }
+                    }, 1000);
+                } else {
+                    sendCode(code);
+                }
+            });
+
+            function sendCode(code) {
+                // Clear previous output
+                outputDiv.textContent = '';
+                // Show output modal
+                outputModal.classList.remove('hidden');
+                
                 ws.send(JSON.stringify({
                     code: code,
                     timestamp: new Date().toISOString()
                 }));
-                outputDiv.textContent = 'Executing code...';
-            });
+                updateStatus('Executing code...', true);
+                startTimer();
+            }
 
             showOutputButton.addEventListener('click', () => {
                 outputModal.classList.remove('hidden');

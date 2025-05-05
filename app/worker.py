@@ -10,18 +10,26 @@ from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
 import torch
 from dotenv import load_dotenv
+from pathlib import Path
 
 
 load_dotenv()
+
+UPLOAD_DIR = Path("uploads")
 
 
 def data_fetch(data_path):
     """Fetch and load data from a file."""
     try:
+        # Check if the file exists in the uploads directory
+        file_path = UPLOAD_DIR / data_path
+        if not file_path.exists():
+            raise FileNotFoundError(f"File not found: {data_path}")
+            
         if data_path.endswith('.csv'):
-            return pd.read_csv(data_path)
+            return pd.read_csv(file_path)
         elif data_path.endswith('.npy'):
-            return np.load(data_path)
+            return np.load(file_path)
         else:
             raise ValueError(f"Unsupported file format: {data_path}")
     except Exception as e:
@@ -142,7 +150,8 @@ def main():
     # Connect to Redis for result storage
     redis_client = redis.Redis(
         host=os.getenv('REDIS_HOST', 'localhost'),
-        port=int(os.getenv('REDIS_PORT', 6379))
+        port=int(os.getenv('REDIS_PORT', 6379)),
+        socket_timeout=5,
     )
     
     # Connect to RabbitMQ

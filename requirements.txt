@@ -10,3 +10,7 @@ numpy
 pandas
 scikit-learn
 disutils
+python-multipart
+torch
+torchvision
+torchaudio

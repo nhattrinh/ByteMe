@@ -16,7 +16,7 @@ A distributed machine learning code execution platform that allows users to writ
 
 ## Prerequisites
 
-- Python 3.9+
+- Python 3.9-3.12 (PyTorch compatibility)
 - Docker
 - Kubernetes cluster
 - RabbitMQ
@@ -63,13 +63,20 @@ REDIS_PORT=6379
 uvicorn app.main:app --host 0.0.0.0 --port 8000
 ```
 
-2. Open your browser and navigate to `http://localhost:8000`
+2. In a separate terminal, start the worker process:
+```bash
+python app/worker.py
+```
 
-3. Select a template or write custom code:
+3. Open your browser and navigate to `http://localhost:8000`
+
+4. Select a template or write custom code:
    - Basic ML Pipeline: Predefined template for common ML tasks
    - Custom Code: Write your own code using the available ML functions
 
-4. Click "Run Code" to execute your code
+5. Click "Run Code" to execute your code
+
+Note: Both the FastAPI server and worker process must be running simultaneously for the code execution to work properly. The worker process is responsible for executing the code and storing results in Redis, while the FastAPI server handles the web interface and WebSocket communication.
 
 ## Available ML Functions
 
