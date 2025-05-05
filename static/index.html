@@ -9,16 +9,16 @@
 </head>
 <body class="bg-gray-100 min-h-screen">
     <!-- Navbar -->
-    <div class="bg-white shadow-md">
+    <div class="bg-white shadow-md pb-6">
         <div class="px-4 py-4 flex items-center">
             <h1 class="text-3xl font-bold ml-[5px]">ByteMe</h1>
         </div>
     </div>
 
-    <div class="px-4 py-8">
-        <div class="flex gap-4">
+    <div>
+        <div class="flex max-w-[100vw]">
             <!-- Left Column (15% width) -->
-            <div class="w-1/6 bg-white p-4">
+            <div class="w-1/5 rounded-md bg-white p-4">
                 <div class="mb-4">
                     <label class="block text-gray-700 text-sm font-bold mb-2">Select Template:</label>
                     <select id="templateSelect" class="w-full p-2 border rounded-lg">
@@ -27,7 +27,7 @@
                     </select>
                 </div>
 
-                <div class="mb-4">
+                <div class="mb-4 rounded-md">
                     <label class="block text-gray-700 text-sm font-bold mb-2">Upload CSV:</label>
                     <div class="relative">
                         <input type="file" id="csvUpload" accept=".csv" class="hidden">
@@ -69,16 +69,16 @@
 
         <!-- Output Modal -->
         <div id="outputModal" class="fixed inset-0 bg-black bg-opacity-50 hidden">
-            <div class="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-3/4 h-3/4 bg-white rounded-lg p-6">
+            <div class="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-3/4 h-3/4 bg-gray-900 rounded-lg p-6">
                 <div class="flex justify-between items-center mb-4">
-                    <h2 class="text-xl font-semibold">Output</h2>
-                    <button id="closeModal" class="text-gray-500 hover:text-gray-700">
+                    <h2 class="text-xl font-semibold text-gray-200">Output Terminal</h2>
+                    <button id="closeModal" class="text-gray-400 hover:text-gray-200">
                         <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
                         </svg>
                     </button>
                 </div>
-                <div id="output" class="bg-gray-800 text-green-400 p-4 rounded-lg font-mono h-[calc(100%-4rem)] overflow-y-auto"></div>
+                <div id="output" class="bg-gray-800 text-green-400 p-4 rounded-lg font-mono h-[calc(100%-4rem)] overflow-y-auto whitespace-pre-wrap"></div>
             </div>
         </div>
     </div>
@@ -87,29 +87,91 @@
         require.config({ paths: { 'vs': 'https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.45.0/min/vs' }});
         require(['vs/editor/editor.main'], function() {
             const editor = monaco.editor.create(document.getElementById('editor'), {
-                value: `# Basic ML Pipeline Template
-# 1. Data Fetching
-data = data_fetch('path/to/your/data.csv')
-
-# 2. Data Preprocessing
-X_train, X_test, y_train, y_test, scaler = data_preprocessing(
-    data=data,
-    target_column='target',
-    test_size=0.2
-)
-
-# 3. Model Training
-model = train(
-    X_train=X_train,
-    y_train=y_train,
-    model_type='linear'  # Options: 'linear', 'random_forest', 'neural_network'
-)
-
-# 4. Model Evaluation
-from sklearn.metrics import mean_squared_error
-y_pred = model.predict(X_test)
-mse = mean_squared_error(y_test, y_pred)
-print(f"Mean Squared Error: {mse}")`,
+                value: '# Basic ML Pipeline Template\n' +
+                '# 1. Data Fetching\n' +
+                'data = data_fetch(\'path/to/your/data.csv\')\n' +
+                'print("✓ Data loaded successfully")\n' +
+                'print("Data shape:", data.shape)\n' +
+                'print("Columns:", ", ".join(data.columns))\n' +
+                '\n' +
+                '# Data Validation\n' +
+                'print("\\nValidating data...")\n' +
+                'if data.empty:\n' +
+                '    raise ValueError("Data is empty")\n' +
+                'if \'target\' not in data.columns:\n' +
+                '    raise ValueError("No \'target\' column found in data")\n' +
+                'print("✓ Data validation passed")\n' +
+                '\n' +
+                '# 2. Data Preprocessing\n' +
+                '# IMPORTANT: Your CSV must have a column named \'target\' for this to work\n' +
+                '# If your data uses a different column name, replace \'target\' with your column name\n' +
+                '\n' +
+                '# Select only numeric columns (excluding datetime)\n' +
+                'print("\\nPreprocessing data...")\n' +
+                'numeric_cols = data.select_dtypes(include=[\'float64\', \'int64\']).columns\n' +
+                'if \'target\' not in numeric_cols:\n' +
+                '    numeric_cols = numeric_cols.append(pd.Index([\'target\']))\n' +
+                'data = data[numeric_cols]\n' +
+                'print("Selected numeric columns:", ", ".join(numeric_cols))\n' +
+                '\n' +
+                '# Create lagged features for all numeric columns\n' +
+                'print("Creating lagged features...")\n' +
+                'lagged_data = data.copy()\n' +
+                'for col in numeric_cols:\n' +
+                '    if col != \'target\':  # Don\'t create lags for target\n' +
+                '        lagged_data[f\'{col}_lag1\'] = lagged_data[col].shift(1)\n' +
+                '        lagged_data[f\'{col}_lag2\'] = lagged_data[col].shift(2)\n' +
+                '        lagged_data[f\'{col}_lag3\'] = lagged_data[col].shift(3)\n' +
+                '\n' +
+                '# Drop rows with NaN values (from lagging)\n' +
+                'lagged_data = lagged_data.dropna()\n' +
+                '\n' +
+                '# Remove original columns to avoid data leakage\n' +
+                'lagged_data = lagged_data.drop(columns=[col for col in numeric_cols if col != \'target\'])\n' +
+                '\n' +
+                'X_train, X_test, y_train, y_test, scaler = data_preprocessing(\n' +
+                '    data=lagged_data,\n' +
+                '    target_column=\'target\',  # Change this to your target column name if different\n' +
+                '    test_size=0.2\n' +
+                ')\n' +
+                'print("✓ Data preprocessing completed")\n' +
+                'print("Training set shape:", X_train.shape)\n' +
+                'print("Testing set shape:", X_test.shape)\n' +
+                '\n' +
+                '# 3. Model Training\n' +
+                'print("\\nTraining model...")\n' +
+                'model = train(\n' +
+                '    X_train=X_train,\n' +
+                '    y_train=y_train,\n' +
+                '    model_type=\'linear\'  # Options: \'linear\', \'random_forest\', \'neural_network\'\n' +
+                ')\n' +
+                'print("✓ Model training completed")\n' +
+                '\n' +
+                '# 4. Model Evaluation\n' +
+                'from sklearn.metrics import mean_squared_error, r2_score\n' +
+                'import joblib\n' +
+                'from io import BytesIO\n' +
+                'import base64\n' +
+                '\n' +
+                '# Make predictions\n' +
+                'print("\\nEvaluating model...")\n' +
+                'y_pred = model.predict(X_test)\n' +
+                'mse = mean_squared_error(y_test, y_pred)\n' +
+                'r2 = r2_score(y_test, y_pred)\n' +
+                '\n' +
+                '# Print metrics\n' +
+                'print("Model Performance:")\n' +
+                'print("Mean Squared Error:", f"{mse:.4f}")\n' +
+                'print("R-squared Score:", f"{r2:.4f}")\n' +
+                '\n' +
+                '# Save model to bytes\n' +
+                'print("\\nSaving model...")\n' +
+                'model_buffer = BytesIO()\n' +
+                'joblib.dump(model, model_buffer)\n' +
+                'model_buffer.seek(0)\n' +
+                'model_base64 = base64.b64encode(model_buffer.getvalue()).decode(\'utf-8\')\n' +
+                'print("✓ Model saved successfully")\n' +
+                'print("MODEL_DATA:" + model_base64)',
                 language: 'python',
                 theme: 'vs-dark',
                 automaticLayout: true
@@ -129,31 +191,77 @@ print(f"Mean Squared Error: {mse}")`,
                 basic: `# Basic ML Pipeline Template
 # 1. Data Fetching
 data = data_fetch('path/to/your/data.csv')
+print("✓ Data loaded successfully")
+print("Data shape:", data.shape)
+print("Columns:", ", ".join(data.columns))
 
 # 2. Data Preprocessing
+# IMPORTANT: Your CSV must have a column named 'target' for this to work
+# If your data uses a different column name, replace 'target' with your column name
+
+# Select only numeric columns (excluding datetime)
+print("\nPreprocessing data...")
+numeric_cols = data.select_dtypes(include=['float64', 'int64']).columns
+if 'target' not in numeric_cols:
+    numeric_cols = numeric_cols.append(pd.Index(['target']))
+data = data[numeric_cols]
+print("Selected numeric columns:", ", ".join(numeric_cols))
+
 X_train, X_test, y_train, y_test, scaler = data_preprocessing(
     data=data,
-    target_column='target',
+    target_column='target',  # Change this to your target column name if different
     test_size=0.2
 )
+print("✓ Data preprocessing completed")
+print("Training set shape:", X_train.shape)
+print("Testing set shape:", X_test.shape)
 
 # 3. Model Training
+print("\nTraining model...")
 model = train(
     X_train=X_train,
     y_train=y_train,
     model_type='linear'  # Options: 'linear', 'random_forest', 'neural_network'
 )
+print("✓ Model training completed")
 
 # 4. Model Evaluation
-from sklearn.metrics import mean_squared_error
+from sklearn.metrics import mean_squared_error, r2_score
+import joblib
+from io import BytesIO
+import base64
+
+# Make predictions
+print("\nEvaluating model...")
 y_pred = model.predict(X_test)
 mse = mean_squared_error(y_test, y_pred)
-print(f"Mean Squared Error: {mse}")`,
+r2 = r2_score(y_test, y_pred)
+
+# Print metrics
+print("Model Performance:")
+print("Mean Squared Error:", f"{mse:.4f}")
+print("R-squared Score:", f"{r2:.4f}")
+
+# Save model to bytes
+print("\nSaving model...")
+model_buffer = BytesIO()
+joblib.dump(model, model_buffer)
+model_buffer.seek(0)
+model_base64 = base64.b64encode(model_buffer.getvalue()).decode('utf-8')
+print("✓ Model saved successfully")
+print("MODEL_DATA:" + model_base64)`,
                 custom: `# Enter your custom code here
 # Available functions:
 # - data_fetch(data_path)
 # - data_preprocessing(data, target_column=None, test_size=0.2)
 # - train(X_train, y_train, model_type='linear', **kwargs)
+
+# To check available columns in your CSV:
+data = data_fetch('your_file.csv')
+print("Available columns:", data.columns.tolist())
+
+# IMPORTANT: Your CSV must have a column named 'target' for the basic template to work
+# If your data uses a different column name, you'll need to modify the code accordingly
 
 print("Hello, World!")`
             };
@@ -286,6 +394,19 @@ print("Hello, World!")`
                             outputDiv.textContent += '\n' + data.message;
                         }
                     } else if (data.type === 'output') {
+                        // Check for model data marker
+                        if (data.result.includes('MODEL_DATA:')) {
+                            const modelData = data.result.split('MODEL_DATA:')[1].split('\n')[0];
+                            // Create and trigger download automatically
+                            const link = document.createElement('a');
+                            link.href = 'data:application/octet-stream;base64,' + modelData;
+                            link.download = 'trained_model.joblib';
+                            document.body.appendChild(link);
+                            link.click();
+                            document.body.removeChild(link);
+                            // Remove the base64 data from the output
+                            data.result = data.result.replace(/MODEL_DATA:.*\n/, '');
+                        }
                         outputDiv.textContent += '\n' + data.result;
                         outputModal.classList.remove('hidden');
                         stopTimer();

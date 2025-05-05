@@ -22,6 +22,19 @@ A distributed machine learning code execution platform that allows users to writ
 - RabbitMQ
 - Redis
 
+## Data Requirements
+
+Your CSV file must contain a column named 'target' that will be used as the target variable for prediction. If your data uses a different column name, you'll need to modify the code template to use your column name.
+
+To check the available columns in your CSV:
+1. Upload your CSV file
+2. Use the custom template
+3. Run this code:
+```python
+data = data_fetch('your_file.csv')
+print("Available columns:", data.columns.tolist())
+```
+
 ## Installation
 
 1. Clone the repository:
