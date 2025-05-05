@@ -1,156 +1,244 @@
-# Distributed ML Code Execution Platform
+# ByteMe - ML Pipeline Development Platform
 
-A distributed machine learning code execution platform that allows users to write and execute ML code in a web-based environment. The platform supports parallel execution of ML tasks using Kubernetes, RabbitMQ, and Redis.
+ByteMe is a web-based platform that allows users to develop and test machine learning pipelines in a streamlined environment. It provides a code editor with ML templates, real-time execution, and model deployment capabilities.
 
-## Features
+## Architecture and Data Flow
 
-- Web-based code editor with Monaco (VS Code's editor)
-- Predefined ML functions for common tasks:
-  - `data_fetch`: Load data from CSV or NPY files
-  - `data_preprocessing`: Handle data preprocessing with scaling and train-test split
-  - `train`: Train ML models (Linear Regression, Random Forest, Neural Network)
-- Real-time code execution status updates
-- Distributed execution using Kubernetes
-- Task queue management with RabbitMQ
-- Result storage with Redis
+### High-Level Architecture
 
-## Prerequisites
+![High Level Architecture](docs/high_level_arch.png)
 
-- Python 3.9-3.12 (PyTorch compatibility)
-- Docker
-- Kubernetes cluster
-- RabbitMQ
-- Redis
 
-## Data Requirements
+This architecture represents the core components of the ByteMe platform:
 
-Your CSV file must contain a column named 'target' that will be used as the target variable for prediction. If your data uses a different column name, you'll need to modify the code template to use your column name.
+1. **Web Interface Layer**
+   - Frontend Framework: React.js with TypeScript
+   - Code Editor: Monaco Editor (VS Code's editor)
+   - UI Components: Material-UI (MUI)
+   - State Management: Redux Toolkit
+   - Build Tool: Vite
+   - Testing: Jest and React Testing Library
+   - Provides the user interface for code editing and file uploads
+   - Handles real-time output display and model downloads
+   - Communicates with the backend via WebSocket
 
-To check the available columns in your CSV:
-1. Upload your CSV file
-2. Use the custom template
-3. Run this code:
-```python
-data = data_fetch('your_file.csv')
-print("Available columns:", data.columns.tolist())
-```
+2. **WebSocket Server**
+   - Framework: Flask-SocketIO
+   - Protocol: WebSocket with Socket.IO
+   - Authentication: JWT (JSON Web Tokens)
+   - Rate Limiting: Flask-Limiter
+   - Acts as the communication bridge between frontend and backend
+   - Handles real-time bidirectional communication
+   - Manages code execution status updates
+   - Streams output and error messages
 
-## Installation
+3. **Python Backend**
+   - Framework: Flask
+   - ML Libraries: PyTorch, scikit-learn, pandas
+   - Code Execution: Python's subprocess with resource limits
+   - File Handling: Python's tempfile and shutil
+   - Database: SQLite (for development), PostgreSQL (for production)
+   - ORM: SQLAlchemy
+   - Executes ML code in an isolated environment
+   - Processes file uploads and data handling
+   - Manages ML pipeline execution
+   - Handles model training and evaluation
 
-1. Clone the repository:
+4. **Data Flow**
+   - User interactions flow from browser to WebSocket server
+   - Code execution requests are processed by the Python backend
+   - Results and status updates flow back through WebSocket
+   - File uploads are handled separately for better performance
+
+### AWS Architecture
+
+![AWS Architecture](docs/aws_arch.png)
+
+This architecture represents the production deployment of ByteMe on AWS:
+
+1. **Client Layer**
+   - Users access the application through their web browsers
+   - Static assets are served through CloudFront CDN
+   - WebSocket connections are established through ALB
+
+2. **DNS and CDN Layer**
+   - Route 53 manages DNS routing and health checks
+   - CloudFront provides global content delivery
+   - ACM handles SSL/TLS certificate management
+
+3. **Load Balancing Layer**
+   - ALB distributes traffic across EC2 instances
+   - Handles WebSocket connections
+   - Provides SSL termination
+   - Manages health checks
+
+4. **Compute Layer**
+   - EC2 instances run the application in Docker containers
+   - Auto Scaling Group manages instance count
+   - ECR stores and distributes Docker images
+
+5. **Monitoring Layer**
+   - CloudWatch monitors application metrics
+   - Collects logs and performance data
+   - Triggers alerts based on defined thresholds
+
+## AWS Deployment Guide
+
+### Prerequisites
+- AWS Account
+- AWS CLI installed and configured
+- Python 3.9+
+- Docker installed locally
+
+### 1. Set Up AWS Resources
+
+#### Create an EC2 Instance
 ```bash
-git clone <repository-url>
-cd <repository-name>
+# Create a security group
+aws ec2 create-security-group --group-name ByteMe-SG --description "Security group for ByteMe"
+aws ec2 authorize-security-group-ingress --group-name ByteMe-SG --protocol tcp --port 22 --cidr 0.0.0.0/0
+aws ec2 authorize-security-group-ingress --group-name ByteMe-SG --protocol tcp --port 80 --cidr 0.0.0.0/0
+aws ec2 authorize-security-group-ingress --group-name ByteMe-SG --protocol tcp --port 443 --cidr 0.0.0.0/0
+
+# Launch EC2 instance
+aws ec2 run-instances \
+    --image-id ami-0c55b159cbfafe1f0 \
+    --count 1 \
+    --instance-type t2.micro \
+    --key-name YourKeyPair \
+    --security-groups ByteMe-SG
 ```
 
-2. Install Python dependencies:
+### 2. Prepare the Application
+
+#### Create Dockerfile
+```dockerfile
+FROM python:3.9-slim
+
+WORKDIR /app
+
+COPY requirements.txt .
+RUN pip install -r requirements.txt
+
+COPY . .
+
+EXPOSE 8000
+
+CMD ["python", "app.py"]
+```
+
+#### Create requirements.txt
+```
+flask==2.0.1
+flask-socketio==5.1.1
+pandas==1.3.3
+scikit-learn==0.24.2
+torch==1.9.0
+numpy==1.21.2
+```
+
+### 3. Deploy to AWS
+
+#### Build and Push Docker Image
 ```bash
-pip install -r requirements.txt
+# Build the Docker image
+docker build -t byteme-app .
+
+# Tag the image
+docker tag byteme-app:latest your-aws-account-id.dkr.ecr.your-region.amazonaws.com/byteme-app:latest
+
+# Push to ECR
+aws ecr create-repository --repository-name byteme-app
+docker push your-aws-account-id.dkr.ecr.your-region.amazonaws.com/byteme-app:latest
 ```
 
-3. Build Docker images:
+#### Deploy to EC2
 ```bash
-docker build -t code-execution-platform:latest .
-docker build -t code-execution-worker:latest -f Dockerfile.worker .
+# SSH into your EC2 instance
+ssh -i your-key.pem ec2-user@your-ec2-ip
+
+# Install Docker
+sudo yum update -y
+sudo amazon-linux-extras install docker
+sudo service docker start
+sudo usermod -a -G docker ec2-user
+
+# Pull and run the Docker container
+docker pull your-aws-account-id.dkr.ecr.your-region.amazonaws.com/byteme-app:latest
+docker run -d -p 80:8000 your-aws-account-id.dkr.ecr.your-region.amazonaws.com/byteme-app:latest
 ```
 
-4. Deploy to Kubernetes:
+### 4. Set Up Domain and SSL (Optional)
+
+#### Using Route 53 and ACM
 ```bash
-kubectl apply -f k8s/deployment.yaml
+# Create a hosted zone in Route 53
+aws route53 create-hosted-zone --name yourdomain.com --caller-reference $(date +%s)
+
+# Request an SSL certificate
+aws acm request-certificate --domain-name yourdomain.com --validation-method DNS
+
+# Create an Application Load Balancer
+aws elbv2 create-load-balancer --name byteme-alb --subnets subnet-12345678 subnet-87654321 --security-groups sg-12345678
 ```
 
-## Configuration
+### 5. Monitoring and Maintenance
 
-Create a `.env` file in the root directory with the following variables:
-
-```env
-RABBITMQ_HOST=localhost
-REDIS_HOST=localhost
-REDIS_PORT=6379
-```
-
-## Usage
-
-1. Start the FastAPI server:
+#### Set Up CloudWatch
 ```bash
-uvicorn app.main:app --host 0.0.0.0 --port 8000
+# Create a CloudWatch log group
+aws logs create-log-group --log-group-name /byteme/app
+
+# Create a CloudWatch alarm
+aws cloudwatch put-metric-alarm \
+    --alarm-name ByteMe-CPU-Utilization \
+    --metric-name CPUUtilization \
+    --namespace AWS/EC2 \
+    --statistic Average \
+    --period 300 \
+    --threshold 80 \
+    --comparison-operator GreaterThanThreshold \
+    --evaluation-periods 2 \
+    --alarm-actions arn:aws:sns:region:account-id:your-topic
 ```
-
-2. In a separate terminal, start the worker process:
-```bash
-python app/worker.py
-```
-
-3. Open your browser and navigate to `http://localhost:8000`
-
-4. Select a template or write custom code:
-   - Basic ML Pipeline: Predefined template for common ML tasks
-   - Custom Code: Write your own code using the available ML functions
-
-5. Click "Run Code" to execute your code
-
-Note: Both the FastAPI server and worker process must be running simultaneously for the code execution to work properly. The worker process is responsible for executing the code and storing results in Redis, while the FastAPI server handles the web interface and WebSocket communication.
-
-## Available ML Functions
-
-### data_fetch
-```python
-data = data_fetch('path/to/your/data.csv')
-```
-Loads data from CSV or NPY files.
-
-### data_preprocessing
-```python
-X_train, X_test, y_train, y_test, scaler = data_preprocessing(
-    data=data,
-    target_column='target',
-    test_size=0.2
-)
-```
-Preprocesses data with scaling and train-test split.
-
-### train
-```python
-model = train(
-    X_train=X_train,
-    y_train=y_train,
-    model_type='linear'  # Options: 'linear', 'random_forest', 'neural_network'
-)
-```
-Trains ML models with different algorithms.
-
-## Architecture
-
-- **Frontend**: FastAPI with WebSocket support
-- **Code Editor**: Monaco Editor (VS Code's editor)
-- **Task Queue**: RabbitMQ
-- **Result Storage**: Redis
-- **Container Orchestration**: Kubernetes
-- **ML Libraries**: scikit-learn, PyTorch, pandas, numpy
 
 ## Security Considerations
 
-- Code execution is sandboxed
-- Timeout limits for code execution
-- Input validation and sanitization
-- Secure WebSocket connections
+1. **Network Security**
+   - Use VPC with private subnets
+   - Implement security groups
+   - Enable SSL/TLS encryption
+
+2. **Application Security**
+   - Input validation
+   - Code execution sandboxing
+   - Secure file handling
+
+3. **Data Security**
+   - Temporary file storage
+   - Secure model transfer
+   - Regular cleanup
+
+## Troubleshooting
+
+1. **Common Issues**
+   - WebSocket connection failures
+   - File upload errors
+   - Model serialization issues
+
+2. **Logs and Monitoring**
+   - Check CloudWatch logs
+   - Monitor EC2 instance metrics
+   - Review application logs
 
 ## Contributing
 
 1. Fork the repository
-2. Create your feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add some amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
+2. Create a feature branch
+3. Commit your changes
+4. Push to the branch
+5. Create a Pull Request
 
 ## License
 
-This project is licensed under the MIT License - see the LICENSE file for details.
-
-## Acknowledgments
-
-- Monaco Editor for the code editor
-- FastAPI for the web framework
-- RabbitMQ for message queuing
-- Redis for result storage
-- Kubernetes for container orchestration 
+This project is licensed under the MIT License - see the LICENSE file for details. 
